@@ -1,0 +1,216 @@
+Local char ZSTOFCY,ZITMREF,ZITMDES,ZPCU,ZSTA,ZLOC,ZSUBLOT,ZLOT,ZLOCTYP
+local integer ZVCRTYP,ZQTY 
+#Call ZSTOCKDETAIL("MANAGER",1,"MRCZA0210002",ZSTOFCY,ZVCRTYP,ZITMREF,ZITMDES,ZPCU,ZQTY,ZSTA,ZLOCTYP,ZLOC,ZSUBLOT,ZLOT)
+#iNFBOX NUM$(ZSTOFCY)
+#iNFBOX NUM$(ZVCRTYP)
+#iNFBOX NUM$(ZITMREF)
+#End
+#############################################################################################################
+Subprog ZSTOCKDETAIL(ZROLE,ZSTOCKTYPE,ZDOCNUM,ZSTOFCY,ZSTKTR,ZITMREF,ZITMDES,ZPCU,ZQTY,ZSTA,ZLOCTYP,ZLOC,ZSUBLOT,ZLOT)
+Value Char ZROLE
+Value Integer ZSTOCKTYPE
+Value Char ZDOCNUM
+Variable char ZSTOFCY
+Variable integer ZSTKTR
+Variable char ZITMREF
+Variable char ZITMDES
+Variable char ZPCU
+Variable integer ZQTY
+Variable char ZSTA
+Variable char ZLOCTYP
+Variable char ZLOC
+Variable char ZSUBLOT
+Variable char ZLOT
+
+Local Integer ZI,ZFLAG
+Local char ZSLOC,ZDSTLOC
+Raz ZSLOC,ZDSTLOC 
+
+
+If clalev([F:ZSTJ])=0   : Local File STOJOU[F:ZSTJ]      : Endif
+If clalev([F:ZSTC])=0   : LOCAL FILE STOLOC[F:ZSTC]      : Endif
+If clalev([F:ZSTK])=0   : LOCAL FILE STOCK[F:ZSTK]       : Endif
+If clalev([F:ZSTK1])=0  : LOCAL FILE STOCK[F:ZSTK1]      : Endif
+If clalev([F:ZSTO])=0   : Local File STOALL[F:ZSTO]      : Endif
+If clalev([F:ZITM])=0   : Local File ITMMASTER[F:ZITM]   : Endif
+If clalev([F:ZITM1])=0  : Local File ITMMASTER[F:ZITM1]  : Endif
+If clalev([F:ZMFG])=0   : Local File MFGHEAD[F:ZMFG]     : Endif
+If clalev([F:ZRL])=0    : Local File ZROLES[F:ZRL]       : Endif
+If clalev([F:ZSMD])=0   : Local File SMVTD[F:ZSMD]       : Endif
+
+If ZSTOCKTYPE = 1
+    Read[F:ZRL]ZRL0 = ZROLE
+    If fstat = 0
+       IF [F:ZRL]ZOUTHULPUT = 2
+           ZSLOC = [F:ZRL]ZSLOC0 
+           ZDSTLOC = [F:ZRL]ZLOC0 
+       Endif
+    Endif
+    If ZSLOC <> "" 
+       Filter[F:ZSTJ] where [F:ZSTJ]VCRNUM = ZDOCNUM and [F:ZSTJ]LOC = ZSLOC and [F:ZSTJ]REGFLG = 1
+       For[F:ZSTJ]
+          Gosub ZSTKTYP1
+       Next
+    Else
+       Filter[F:ZSTJ] where [F:ZSTJ]VCRNUM = ZDOCNUM and [F:ZSTJ]REGFLG = 1
+       For[F:ZSTJ]
+           Gosub ZSTKTYP1
+       Next
+    Endif 
+Elsif ZSTOCKTYPE<>1 and ZSTOCKTYPE<>6
+
+    Read[F:ZRL]ZRL0 = ZROLE
+    If fstat = 0
+       IF [F:ZRL]ZSIZERPUT = 2 and ZSTOCKTYPE = 2
+           ZSLOC = [F:ZRL]ZSLOC1 
+           ZDSTLOC = [F:ZRL]ZLOC1 
+       ElsIF [F:ZRL]ZPACKOUTPUT = 2 and ZSTOCKTYPE = 3
+           ZSLOC = [F:ZRL]ZSLOC2 
+           ZDSTLOC = [F:ZRL]ZLOC2
+       ElsIF [F:ZRL]ZSIZERSTG = 2 and ZSTOCKTYPE = 4
+           ZSLOC = [F:ZRL]ZSLOC3 
+           ZDSTLOC = [F:ZRL]ZLOC3 
+       ElsIF [F:ZRL]ZPACKOUTSTG = 2 and ZSTOCKTYPE = 5
+           ZSLOC = [F:ZRL]ZSLOC4 
+           ZDSTLOC = [F:ZRL]ZLOC4 
+       Endif
+    Endif
+    IF ZSLOC <> ""
+       Filter[F:ZSTO] where [F:ZSTO]VCRNUM = ZDOCNUM
+       For[F:ZSTO]
+          Read[F:ZSTK1]STO0 = [F:ZSTO]STOFCY;[F:ZSTO]STOCOU
+          If fstat = 0  
+             If ZSLOC = [F:ZSTK1]LOC
+                Gosub ZSTKTYP2
+             Endif
+          Endif
+       Next
+    Else
+       Filter[F:ZSTO] where [F:ZSTO]VCRNUM = ZDOCNUM
+       For[F:ZSTO]
+          Read[F:ZSTK1]STO0 = [F:ZSTO]STOFCY;[F:ZSTO]STOCOU
+          If fstat = 0        
+             Gosub ZSTKTYP2
+          Endif
+       Next
+    Endif
+Elsif ZSTOCKTYPE = 6
+  Read[F:ZRL]ZRL0 = ZROLE
+    If fstat = 0
+       IF [F:ZRL]ZWHMOMT = 2
+           ZSLOC = [F:ZRL]ZSLOC5 
+           ZDSTLOC = [F:ZRL]ZLOC5
+       Endif
+    Endif
+     If ZSLOC <> ""
+        Filter[F:ZSTK] where [F:ZSTK]SLO = ZDOCNUM and [F:ZSTK]LOC = ZSLOC 
+        For[F:ZSTK]
+            Gosub ZSTKTYP6
+        Next  
+     Else
+        Filter[F:ZSTK] where [F:ZSTK]SLO = ZDOCNUM 
+        For[F:ZSTK]
+            Gosub ZSTKTYP6
+        Next  
+     Endif
+Endif
+End 
+####################################################################################################
+$ZSTKTYP1
+  If ZDSTLOC <> [F:ZSTJ]LOC
+      ZSTOFCY(ZI)   =   [F:ZSTJ]STOFCY
+      ZSTKTR(ZI)    =   [F:ZSTJ]VCRTYP
+      ZITMREF(ZI)   =   [F:ZSTJ]ITMREF
+      ##----------------------------------------------------------------------##
+      ##-- Getting product description based on product from ITMMASTER table--##
+      ##----------------------------------------------------------------------##
+      Read[F:ZITM]ITM0 = [F:ZSTJ]ITMREF
+      If fstat=0
+         ZITMDES(ZI)   =   [F:ZITM]ITMDES1
+      Endif
+      ##----------------------------------------------------------------------##
+      ZPCU(ZI)      =   [F:ZSTJ]PCU
+      ZQTY(ZI)      =   [F:ZSTJ]QTYSTU
+      ZSTA(ZI)      =   [F:ZSTJ]STA
+      ZLOC(ZI)      =   [F:ZSTJ]LOC
+
+      ##----------------------------------------------------------------------##
+      ##-- To get Location type based on Site and Location from STOLOC table--##
+      ##----------------------------------------------------------------------##
+      Read[F:ZSTC]STC0 = ZSTOFCY(ZI);ZLOC(ZI) 
+      If fstat=0
+         ZLOCTYP(ZI)   =   [F:ZSTC]LOCTYP
+      Endif
+      ##----------------------------------------------------------------------##
+      if ZLOCTYP(ZI) = ""
+             ZLOCTYP(ZI)   =  [F:ZSTC]LOCTYP
+      Endif
+      ZLOT(ZI)      =   [F:ZSTJ]LOT
+      ZSUBLOT(ZI)   =   [F:ZSTJ]SLO
+      ZI+=1 
+   Endif
+Return
+####################################################################################################
+$ZSTKTYP2
+  If ZDSTLOC <> [F:ZSTK1]LOC
+      ZSTOFCY(ZI)   =   [F:ZSTK1]STOFCY
+      ZSTKTR(ZI)    =   [F:ZSTO]VCRTYP
+      ZITMREF(ZI)   =   [F:ZSTK1]ITMREF
+      ##----------------------------------------------------------------------##
+      ##-- Getting product description based on product from ITMMASTER table--##
+      ##----------------------------------------------------------------------##
+      Read[F:ZITM]ITM0 = ZITMREF(ZI)
+      If fstat=0
+         ZITMDES(ZI)   =   [F:ZITM]ITMDES1
+      Endif
+      ##----------------------------------------------------------------------##
+      ZQTY(ZI)      =   [F:ZSTK1]QTYSTU
+      ZSTA(ZI)      =   [F:ZSTK1]STA
+      ZLOC(ZI)      =   [F:ZSTK1]LOC
+      ZLOCTYP(ZI)   =   [F:ZSTK1]LOCTYP
+      ##----------------------------------------------------------------------##
+      ##-- To get Location type based on Site and Location from STOLOC table--##
+      ##----------------------------------------------------------------------##
+     # Read[F:ZSTC]STC0 = ZSTOFCY(ZI);ZLOC(ZI) 
+     # If fstat=0
+     #    ZLOCTYP(ZI)   =   [F:ZSTC]LOCTYP
+     # Endif
+      ##----------------------------------------------------------------------##
+      ZSUBLOT(ZI)   =   [F:ZSTK1]SLO
+      ZLOT(ZI)      =   [F:ZSTK1]LOT
+      ZPCU(ZI)      =   [F:ZSTK1]PCU
+      ##----------------------------------------------------------------------##
+      ##-- Get the units from the table MFGHEAD--##
+      ##----------------------------------------------------------------------##
+    #  Read[F:ZMFG]MFG0 = ZDOCNUM
+   #   If fstat=0
+   #      ZPCU(ZI)      =   [F:ZSGD]PCU
+  #    Endif
+      ##----------------------------------------------------------------------##
+      ZI+=1 
+  Endif
+Return
+#############################################################################################
+$ZSTKTYP6
+  If ZDSTLOC <> [F:ZSTK]LOC
+     ZSTOFCY(ZI)   =   [F:ZSTK]STOFCY
+#        ZSTKTR(ZI)   =   [F:ZSTK]VCRTYP
+        ZITMREF(ZI)   =   [F:ZSTK]ITMREF
+     ##----------------------------------------------------------------------##
+      ##-- Getting product description based on product from ITMMASTER table--##
+      ##----------------------------------------------------------------------##
+      Read[F:ZITM]ITM0 = ZITMREF(ZI)
+      If fstat=0
+         ZITMDES(ZI)   =   [F:ZITM]ITMDES1
+      Endif
+         ZPCU(ZI)      =   [F:ZSTK]PCU
+         ZQTY(ZI)      =   [F:ZSTK]QTYSTU
+         ZSTA(ZI)      =   [F:ZSTK]STA
+         ZLOCTYP(ZI)   =   [F:ZSTK]LOCTYP
+         ZLOC(ZI)      =   [F:ZSTK]LOC
+         ZSUBLOT(ZI)   =   [F:ZSTK]SLO
+         ZLOT(ZI)      =   [F:ZSTK]LOT
+       ZI+=1
+   Endif
+Return
+
